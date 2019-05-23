@@ -40,6 +40,10 @@ final class Task<Value, Error>: TaskSubscriptionDelegate {
         return state != .executing
     }
 
+    public var metrics: TaskMetrics2 {
+        return job.metrics
+    }
+
     private lazy var job = Job(task: self)
     private var starter: ((Job) -> Void)?
 
@@ -184,6 +188,7 @@ extension Task.Event: Equatable where Value: Equatable, Error: Equatable {}
 
 extension Task {
     final class Job {
+        public let metrics = TaskMetrics2()
         private weak var task: Task?
 
         var onCancelled: (() -> Void)?
@@ -205,8 +210,9 @@ extension Task {
         /// priority is updated.
         var dependency: TaskSubscription? {
             didSet {
-                guard let task = task else { return }
-                dependency?.setPriority(task.priority)
+                guard let task = task, let dependency = dependency else { return }
+                metrics.dependency = dependency.task.metrics
+                dependency.setPriority(task.priority)
             }
         }
 
@@ -239,7 +245,7 @@ extension Task {
 /// Represents a subscription to a task. The observer must retain a strong
 /// reference to a subscription.
 final class TaskSubscription {
-    private let task: TaskSubscriptionDelegate
+    fileprivate let task: TaskSubscriptionDelegate
     private let key: TaskSubscriptionKey
 
     fileprivate init(task: TaskSubscriptionDelegate, key: TaskSubscriptionKey) {
@@ -271,6 +277,7 @@ final class TaskSubscription {
 private protocol TaskSubscriptionDelegate {
     func unsubsribe(key: TaskSubscriptionKey)
     func setPriority(_ priority: TaskPriority, for observer: TaskSubscriptionKey)
+    var metrics: TaskMetrics2 { get } // TODO: should it be here?
 }
 
 private typealias TaskSubscriptionKey = Int
@@ -303,5 +310,25 @@ final class TaskPool<Value, Error> {
             self?.map[key] = nil
         }
         return task
+    }
+}
+
+// MARK: - TaskMetrics
+
+// TODO: make Codable?
+final class TaskMetrics2 {
+    var context = [String: Any]()
+    var operations = [TaskOperationMetrics]()
+    var dependency: TaskMetrics2?
+}
+
+final class TaskOperationMetrics {
+    let name: String
+    let startDate: Date = Date()
+    var endDate: Date?
+    var context = [String: Any]()
+
+    init(name: String) {
+        self.name = name
     }
 }

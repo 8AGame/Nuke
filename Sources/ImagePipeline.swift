@@ -174,7 +174,7 @@ public /* final */ class ImagePipeline {
             task.metrics = ImageTaskMetrics(taskId: task.taskId, startDate: Date())
         }
 
-        self.tasks[task] = getOriginalImageData(for: task.request) .subscribe(priority: task.priority) { [weak self, weak task] event in
+        self.tasks[task] =  getOriginalImageData(for: task.request).subscribe(priority: task.priority) { [weak self, weak task] event in
             guard let self = self, let task = task else { return }
 
             if event.isCompleted {
