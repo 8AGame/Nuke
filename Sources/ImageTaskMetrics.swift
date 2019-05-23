@@ -24,6 +24,8 @@ public final class ImageTaskMetrics: CustomDebugStringConvertible {
     public internal(set) var wasSubscibedToExistingSession: Bool = false
     public internal(set) var isMemoryCacheHit: Bool = false
 
+    var metrics2: TaskMetrics2?
+
     init(taskId: Int, startDate: Date) {
         self.taskId = taskId; self.startDate = startDate
     }

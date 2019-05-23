@@ -16,7 +16,7 @@ import Foundation
 /// represented using Operation to take advantage of these features.
 ///
 /// - warning: Must be thread-confined, including jobs.
-final class Task<Value, Error>: TaskSubscriptionDelegate {
+final class Task<Value, Error>: TaskProtocol {
 
     private struct SubscriptionContext {
         let observer: (Event) -> Void
@@ -245,10 +245,10 @@ extension Task {
 /// Represents a subscription to a task. The observer must retain a strong
 /// reference to a subscription.
 final class TaskSubscription {
-    fileprivate let task: TaskSubscriptionDelegate
+    fileprivate let task: TaskProtocol
     private let key: TaskSubscriptionKey
 
-    fileprivate init(task: TaskSubscriptionDelegate, key: TaskSubscriptionKey) {
+    fileprivate init(task: TaskProtocol, key: TaskSubscriptionKey) {
         self.task = task
         self.key = key
     }
@@ -274,7 +274,7 @@ final class TaskSubscription {
     }
 }
 
-private protocol TaskSubscriptionDelegate {
+private protocol TaskProtocol {
     func unsubsribe(key: TaskSubscriptionKey)
     func setPriority(_ priority: TaskPriority, for observer: TaskSubscriptionKey)
     var metrics: TaskMetrics2 { get } // TODO: should it be here?
