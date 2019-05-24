@@ -319,12 +319,23 @@ final class TaskPool<Value, Error> {
 final class TaskMetrics2 {
     var context = [String: Any]()
     var operations = [TaskOperationMetrics]()
-    var dependency: TaskMetrics2?
+    fileprivate var dependency: TaskMetrics2?
+
+    // TODO: cleanup
+    func flatten() {
+        var next = dependency
+        while let n = next {
+            context.merge(n.context, uniquingKeysWith: { lhs, _ in lhs })
+            operations.append(contentsOf: n.operations)
+            next = n.dependency
+        }
+        dependency = nil
+    }
 }
 
 final class TaskOperationMetrics {
     let name: String
-    let startDate: Date = Date()
+    var startDate: Date?
     var endDate: Date?
     var context = [String: Any]()
 

@@ -140,7 +140,9 @@ public /* final */ class ImagePipeline {
             task.metrics = ImageTaskMetrics(taskId: task.taskId, startDate: Date())
         }
 
-        self.tasks[task] = getDecompressedImage(for: task.request).subscribe(priority: task.priority) { [weak self, weak task] event in
+        let dependency = getDecompressedImage(for: task.request)
+        task.metrics?.metrics2 = dependency.metrics // TODO: temp
+        self.tasks[task] = dependency.subscribe(priority: task.priority) { [weak self, weak task] event in
             guard let self = self, let task = task else { return }
 
             if event.isCompleted {
@@ -153,6 +155,12 @@ public /* final */ class ImagePipeline {
                 case let .value(response, isCompleted):
                     if isCompleted {
                         delegate.imageTask(task, didCompleteWithResult: .success(response))
+
+                        // TODO:
+                        if let metrics = task.metrics {
+                            metrics.metrics2?.flatten()
+                            self.didFinishCollectingMetrics?(task, metrics)
+                        }
                     } else {
                         delegate.imageTask(task, didProduceProgressiveResponse: response)
                     }
@@ -161,6 +169,12 @@ public /* final */ class ImagePipeline {
                     delegate.imageTask(task, didUpdateProgress: progress.completed, totalUnitCount: progress.total)
                 case let .error(error):
                     delegate.imageTask(task, didCompleteWithResult: .failure(error))
+
+                    // TODO:
+                    if let metrics = task.metrics {
+                        metrics.metrics2?.flatten()
+                        self.didFinishCollectingMetrics?(task, metrics)
+                    }
                 }
                 _ = anonymousDelegate // retain anonymous delegates until we are finished with them
             }
@@ -241,12 +255,18 @@ public /* final */ class ImagePipeline {
 
         guard !job.isDisposed else { return }
 
+        let metrics = TaskOperationMetrics(name: "Decompression")
+
         let operation = BlockOperation { [weak self, weak job] in
             guard let self = self, let job = job else { return }
 
+            metrics.startDate = Date()
             let response = response.map { ImageDecompressor().decompress(image: $0) } ?? response
+            metrics.endDate = Date()
 
             self.queue.async {
+                job.metrics.operations.append(metrics)
+
                 self.storeResponse(response, for: request, isCompleted: isCompleted)
                 job.send(value: response, isCompleted: isCompleted)
             }
@@ -588,6 +608,8 @@ public /* final */ class ImagePipeline {
                 if ResumableData.isResumedResponse(response) {
                     context.data = resumableData.data
                     context.resumedDataCount = Int64(resumableData.data.count)
+
+                    job.metrics.context["resumedDataCount"] = Int64(resumableData.data.count)
                 }
                 context.resumableData = nil // Get rid of resumable data
             }
@@ -599,6 +621,11 @@ public /* final */ class ImagePipeline {
 
         let progress = TaskProgress(completed: Int64(context.data.count), total: response.expectedContentLength + context.resumedDataCount)
         job.send(progress: progress)
+
+        // TODO:
+        job.metrics.context["resumableDataCount"] = context.resumableData
+        job.metrics.context["receivedContentLength"] = context.data.count
+        job.metrics.context["expectedContentLength"] = response.expectedContentLength
 
         // Check if we haven't loaded an entire image yet. We give decoder
         // an opportunity to decide whether to decode this chunk or not.

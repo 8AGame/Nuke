@@ -23,7 +23,7 @@ class ImageTaskMetricsTests: XCTestCase {
         // TODO: re-enable when new metrics are implemented
     }
 
-    func _testThatMetricsAreCollectedWhenTaskCompleted() {
+    func testThatMetricsAreCollectedWhenTaskCompleted() {
         let expectation = self.expectation(description: "Metrics Produced")
         pipeline.didFinishCollectingMetrics = { task, metrics in
             XCTAssertEqual(task.taskId, metrics.taskId)
