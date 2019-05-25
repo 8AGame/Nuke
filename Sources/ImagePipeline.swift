@@ -188,7 +188,7 @@ public /* final */ class ImagePipeline {
             task.metrics = ImageTaskMetrics(taskId: task.taskId, startDate: Date())
         }
 
-        self.tasks[task] =  getOriginalImageData(for: task.request).subscribe(priority: task.priority) { [weak self, weak task] event in
+        self.tasks[task] = getOriginalImageData(for: task.request).subscribe(priority: task.priority) { [weak self, weak task] event in
             guard let self = self, let task = task else { return }
 
             if event.isCompleted {
@@ -255,14 +255,13 @@ public /* final */ class ImagePipeline {
 
         guard !job.isDisposed else { return }
 
-        let metrics = TaskOperationMetrics(name: "Decompression")
-
+        let metrics = TaskOperationMetrics(name: "Decompress" + (isCompleted ? "" : " (progressive)"))
         let operation = BlockOperation { [weak self, weak job] in
             guard let self = self, let job = job else { return }
 
-            metrics.startDate = Date()
+            metrics.start()
             let response = response.map { ImageDecompressor().decompress(image: $0) } ?? response
-            metrics.endDate = Date()
+            metrics.end()
 
             self.queue.async {
                 job.metrics.operations.append(metrics)
@@ -312,10 +311,14 @@ public /* final */ class ImagePipeline {
 
         let key = (request.urlString ?? "") + ImageProcessorComposition(request.processors).identifier
 
+        let metrics = TaskOperationMetrics(name: "Load processed image data")
         let operation = BlockOperation { [weak self, weak job] in
             guard let self = self, let job = job else { return }
+            metrics.start()
             let data = dataCache.cachedData(for: key)
+            metrics.end()
             self.queue.async {
+                job.metrics.operations.append(metrics)
                 if let data = data {
                     self.decodeProcessedImageData(data, for: request, job: job)
                 } else {

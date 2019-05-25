@@ -333,13 +333,59 @@ final class TaskMetrics2 {
     }
 }
 
-final class TaskOperationMetrics {
+final class TaskOperationMetrics: CustomStringConvertible {
     let name: String
     var startDate: Date?
     var endDate: Date?
     var context = [String: Any]()
 
+    var duration: TimeInterval {
+        guard let startDate = startDate, let endDate = endDate else {
+            return 0
+        }
+        return endDate.timeIntervalSince(startDate)
+    }
+
     init(name: String) {
         self.name = name
     }
+
+    func start() {
+        startDate = Date()
+    }
+
+    func end() {
+        endDate = Date()
+    }
+
+    var description: String {
+        var desc = "Operation: \(name)\n"
+        desc += "Duration: \(string(from: startDate)) – \(string(from: endDate)) (\(string(fromDuration: duration)))\n"
+        desc += "Context: \(context.description)"
+        return desc
+    }
+
+    private func string(from date: Date?) -> String {
+        guard let date = date else { return "nil" }
+        return timelineFormatter.string(from: date)
+    }
+
+    // TODO: move to Internal.swift?
+    private func string(fromDuration duration: TimeInterval) -> String {
+        let m: Int = Int(duration) / 60
+        let s: Int = Int(duration) % 60
+        let ms: Int = Int(duration * 1000) % 1000
+
+        var output = String()
+        if m > 0 { output.append("\(m):") }
+        output.append(output.isEmpty ? "\(s)." : String(format: "%02d.", s))
+        output.append(String(format: "%03ds", ms))
+        return output
+    }
 }
+
+private let timelineFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm:ss.SSS"
+    return formatter
+}()
